@@ -1,9 +1,10 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from jose import JWTError
 
-from app.core.security import decode_clerk_token
+from app.core.security import decode_token
 from app.db import get_db
 from app.models import User
 
@@ -13,26 +14,29 @@ security = HTTPBearer()
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db)
-):
+) -> str:
     token = credentials.credentials
-    payload = decode_clerk_token(token)
+    payload = decode_token(token)
 
     if not payload or "sub" not in payload:
-        raise HTTPException(status_code=401, detail="Invalid Clerk token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    clerk_id = payload["sub"]
+    user_id = payload["sub"]
 
-    # ✅ Lookup the user by clerk_user_id
-    result = await db.execute(select(User).where(User.clerk_user_id == clerk_id))
+    # ✅ Lookup the user by internal ID
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if not user:
-        # Auto-create user from Clerk token if missing in our DB, so app won't break
-        email_claim = payload.get("email") or f"{clerk_id}@placeholder.clerk.com"
-        user = User(clerk_user_id=clerk_id, email=email_claim)
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    # Return internal UUID as string, which chat_service needs for user.id
+    # Return internal UUID as string
     return str(user.id)

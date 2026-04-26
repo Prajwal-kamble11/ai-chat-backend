@@ -25,24 +25,23 @@ async def get_me(
 
 
 @router.post("/", response_model=UserResponse)
-async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
-
-    if not user.clerk_user_id.strip():
-        raise HTTPException(status_code=400, detail="Invalid clerk_user_id")
-
+async def create_user(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
+    from app.core.security import get_password_hash
+    email = user_in.email.lower()
     # Check if user exists
     result = await db.execute(
-        select(User).where(User.clerk_user_id == user.clerk_user_id)
+        select(User).where(User.email == email)
     )
     existing_user = result.scalar_one_or_none()
 
     if existing_user:
-        return existing_user
+        raise HTTPException(status_code=400, detail="User already exists")
 
     # Create new user
     new_user = User(
-        clerk_user_id=user.clerk_user_id,
-        email=user.email
+        email=email,
+        hashed_password=get_password_hash(user_in.password),
+        full_name=user_in.full_name
     )
 
     db.add(new_user)

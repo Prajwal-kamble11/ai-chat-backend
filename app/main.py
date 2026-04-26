@@ -9,6 +9,8 @@ from app.db import engine
 from app.routes.user import router as user_router
 from app.routes.chat import router as chat_router
 from app.routes.payment import router as payment_router
+from app.routes.auth import router as auth_router
+from app.routes.files import router as files_router
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
@@ -79,3 +81,5 @@ def root():
 app.include_router(user_router)
 app.include_router(chat_router)
 app.include_router(payment_router)
+app.include_router(auth_router)
+app.include_router(files_router)

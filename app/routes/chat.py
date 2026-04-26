@@ -41,13 +41,13 @@ async def stream_chat(
     chat_request.user_id = user_id
 
     # 1. Faster context prep (service is now optimized)
-    history, chat_id, _ = await prepare_chat_context(chat_request, db)
+    history, chat_id, _, is_rag = await prepare_chat_context(chat_request, db)
 
     async def event_generator():
         full_response = ""
         
         # 🔥 First chunk sends metadata (chat_id)
-        yield f"data: {json.dumps({'chat_id': str(chat_id), 'chunk': ''})}\n\n"
+        yield f"data: {json.dumps({'chat_id': str(chat_id), 'chunk': '', 'is_rag': is_rag})}\n\n"
 
         async for chunk in stream_ai_response(history):
             full_response += chunk
@@ -91,7 +91,7 @@ async def get_chat_history(
     return [
         {
             "chat_id": str(chat.id),
-            "title": chat.summary or "New Chat"
+            "summary": chat.summary or "New Chat"
         }
         for chat in chats
     ]

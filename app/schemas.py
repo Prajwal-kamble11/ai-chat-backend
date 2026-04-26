@@ -6,15 +6,28 @@ from datetime import datetime
 
 
 # ================= USER =================
+# ================= AUTH =================
 class UserCreate(BaseModel):
-    clerk_user_id: str
     email: EmailStr
+    password: str = Field(..., min_length=6)
+    full_name: Optional[str] = None
 
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
 
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    user_id: Optional[str] = None
+
+# ================= USER =================
 class UserResponse(BaseModel):
     id: UUID
-    clerk_user_id: str
     email: EmailStr
+    full_name: Optional[str] = None
     plan: str
     subscription_expires_at: Optional[datetime] = None
 
@@ -60,6 +73,18 @@ class MessageResponse(BaseModel):
     content: str
     created_at: datetime
 
+
+    class Config:
+        from_attributes = True
+
+
+# ================= FILES =================
+class FileResponse(BaseModel):
+    id: UUID
+    filename: str
+    file_type: str
+    file_size: int
+    created_at: datetime
 
     class Config:
         from_attributes = True

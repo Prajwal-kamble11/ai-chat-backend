@@ -5,7 +5,7 @@ from app.core.config import settings
 
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=True,
+    echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=10,        # Keeps exactly 10 connections permanently open
     max_overflow=20      # Allows up to 20 emergency burst connections

@@ -8,24 +8,26 @@ from app.models import Chat, Message, User
 from app.schemas import ChatRequest, ChatResponse
 from app.core.redis import redis_client, ArqManager
 from app.services.quota_service import check_and_increment_quota
+from app.services.rag_service import search_relevant_context
 
 client = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
-# Condensed for speed
+# Enhanced System Prompt for RAG
 SYSTEM_PROMPT = """
-You are Ami, a helpful, concise AI.
-- Save tokens: use as few words as possible.
-- Never end mid-sentence.
-- If history context exists, use the summary to stay relevant.
-- Target: 2-4 lines. No filler.
+You are AMI, a smart personal assistant. 
+- You have access to the user's "Knowledge Base" (uploaded files).
+- If the user asks about their files, prioritize the provided context above everything.
+- If the question is general (e.g., 'What is 2+2?'), answer it normally using your own knowledge.
+- If the context is relevant but doesn't fully answer the question, combine the context with your knowledge and provide the answer based on various report on web.
+- Keep citations subtle (e.g., 'Based on your files...').
+- Be concise (2-4 lines).
 """
-
 
 async def get_ai_response(messages):
     response = await client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=messages,
-        max_tokens=400, # Slightly lower for faster generation
+        max_tokens=400,
         temperature=0.5
     )
     return response.choices[0].message.content
@@ -44,11 +46,10 @@ async def stream_ai_response(messages):
         if delta:
             yield delta
 
-
 async def summarize_messages(messages):
     prompt = [
         {"role": "system", "content": "Condense this chat into 1-2 memory-tags."},
-        {"role": "user", "content": str([{"r": m.role, "c": m.content[:100]} for m in messages])}
+        {"role": "user", "content": str([{"r": m.get('role'), "c": m.get('content', '')[:100]} for m in messages])}
     ]
 
     response = await client.chat.completions.create(
@@ -60,19 +61,14 @@ async def summarize_messages(messages):
 
     return response.choices[0].message.content
 
-
-def generate_key(user_id: str, prompt: str):
-    return f"chat:{user_id}:{hashlib.md5(prompt.encode()).hexdigest()}"
-
-
 async def prepare_chat_context(data: ChatRequest, db):
     """
-    Optimized for Speed: Use summaries to minimize message window.
+    Optimized for Speed: Use summaries to minimize message window and RAG for knowledge.
     """
     if not data.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-    user_input = data.message.strip()[:400] # Shorter input window
+    user_input = data.message.strip()[:400]
 
     # 1. USER VALIDATION
     result = await db.execute(select(User).where(User.id == data.user_id))
@@ -94,7 +90,7 @@ async def prepare_chat_context(data: ChatRequest, db):
             raise HTTPException(status_code=403, detail="Unauthorized access")
 
     if not chat:
-        title = " ".join(user_input.split()[:5])[:50]
+        title = user_input[:100]
         chat = Chat(user_id=data.user_id, summary=title)
         db.add(chat)
         await db.commit()
@@ -107,7 +103,11 @@ async def prepare_chat_context(data: ChatRequest, db):
     db.add(user_msg)
     await db.commit()
 
-    # 5. FETCH RECENT HISTORY (Tiered Window)
+    # 5. FETCH RELEVANT KNOWLEDGE (RAG)
+    # This is the "Sharp Memory" part
+    knowledge_context = await search_relevant_context(user_input, str(user.id), db)
+
+    # 6. FETCH RECENT HISTORY
     limit = 5 if user.plan == "free" else 15
     result = await db.execute(
         select(Message)
@@ -118,26 +118,22 @@ async def prepare_chat_context(data: ChatRequest, db):
     all_msgs = result.scalars().all()
     all_msgs = list(reversed(all_msgs))
 
-    # Summary Triggers (Only for Pro users)
-    if user.plan != "free" and len(all_msgs) >= 6:
-        try:
-            messages_data = [{"role": msg.role, "content": msg.content} for msg in all_msgs]
-            await ArqManager.pool.enqueue_job("update_summary_task", str(chat.id), messages_data)
-        except Exception as e:
-            print(f"Summary task failed to queue: {e}")
-
-    # 6. BUILD HISTORY LIST (Tiered Context)
+    # 7. BUILD HISTORY LIST
     history_list = [{"role": "system", "content": SYSTEM_PROMPT}]
     
+    if knowledge_context:
+        history_list.append({
+            "role": "system", 
+            "content": f"Knowledge Base Context (Use this to answer if relevant):\n{knowledge_context}"
+        })
+    
     if user.plan == "free":
-        # 🟢 Free Users: Basic Memory (Only last 2 messages + current)
         recent_messages = all_msgs[-3:] 
     else:
-        # 💎 Pro Users: Standard Memory (Up to 10 messages + summary)
         if chat.summary:
             history_list.append({
                 "role": "system",
-                "content": f"Memory recall: {chat.summary}"
+                "content": f"Memory recall of previous topics: {chat.summary}"
             })
             recent_messages = all_msgs[-6:] 
         else:
@@ -149,23 +145,18 @@ async def prepare_chat_context(data: ChatRequest, db):
     ]
     history_list.append({"role": "user", "content": user_input})
 
-    return history_list, chat_id, user_input
-
+    return history_list, chat_id, user_input, bool(knowledge_context)
 
 async def chat_with_ai(data: ChatRequest, db):
     """Standard non-streaming chat."""
     user_input = data.message.strip()[:400]
-    
-    # PREPARE CONTEXT
-    history, chat_id, _ = await prepare_chat_context(data, db)
+    history, chat_id, _, _ = await prepare_chat_context(data, db)
 
-    # AI CALL
     try:
         ai_reply = await get_ai_response(history)
     except Exception:
         raise HTTPException(status_code=500, detail="AI service failed")
 
-    # SAVE AI MESSAGE
     ai_msg = Message(chat_id=chat_id, role="assistant", content=ai_reply)
     db.add(ai_msg)
     await db.commit()
