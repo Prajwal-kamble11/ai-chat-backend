@@ -1,69 +1,68 @@
-# AMI - AI-Powered Assistant with Knowledge Base
+# 🤖 AMI AI - Advanced RAG Chat Backend
 
-## 1. Project Overview
-AMI is a high-performance AI chatbot platform. It features a custom **JWT-based Authentication** system, **Usage Quotas**, and a sophisticated **RAG (Retrieval-Augmented Generation)** pipeline that allows users to upload documents and chat with them.
-
-### **Core Features**
-- **Sharp Memory (RAG)**: Upload PDF/TXT files. The system automatically chunks and indexes them using `pgvector` and local embeddings (`all-MiniLM-L6-v2`).
-- **Hybrid Search**: Combines semantic vector search with keyword-based full-text search using Reciprocal Rank Fusion (RRF) for maximum accuracy.
-- **Custom Auth**: Secure Login/Signup with `bcrypt` password hashing and JWT session management.
-- **Background Processing**: Heavy tasks like file indexing and chat summarization are handled asynchronously via **Arq**.
-- **Usage Limits**: Tiered quota system (Free vs Pro) to manage API costs.
-
-### **Tech Stack**
-- **Backend**: FastAPI, SQLAlchemy 2.0 (Async), PostgreSQL + `pgvector`.
-- **Frontend**: React (Vite), Tailwind CSS, Framer Motion, Lucide Icons.
-- **AI Engine**: Groq (LLaMA 3.1) for chat, Hugging Face (Sentence Transformers) for local embeddings.
-- **Task Queue**: Redis + Arq.
+A high-performance, asynchronous AI Chat backend built with **FastAPI**, **pgvector**, and **Groq**. This system features a full Retrieval-Augmented Generation (RAG) pipeline, allowing users to chat with their own documents (PDF/TXT) using state-of-the-art LLMs.
 
 ---
 
-## 2. Getting Started
+## 🚀 Features
 
-### **Environment Setup**
-Create a `.env` file in the `ai-chat-backend` directory:
+- **Hybrid RAG Pipeline**: Combines semantic vector search (pgvector) with keyword-based retrieval for highly accurate context injection.
+- **Asynchronous Processing**: Uses **Arq** and **Redis** to handle heavy document indexing and summarization tasks in the background.
+- **Server-Sent Events (SSE)**: Real-time, streaming AI responses for a smooth "typing" experience.
+- **Custom JWT Authentication**: Secure user registration and login with encrypted password hashing (Bcrypt).
+- **Advanced Memory**: Implements a "Summary-First" memory system to maintain long-term context without hitting token limits.
+- **Memory-Efficient Embeddings**: Leverages the **Hugging Face Inference API** to maintain a tiny footprint (under 100MB RAM), perfect for free-tier deployments.
+
+---
+
+## 🛠 Tech Stack
+
+- **Framework**: [FastAPI](https://fastapi.tiangolo.com/)
+- **AI Model**: [Groq](https://groq.com/) (LLaMA 3.1 70B)
+- **Database**: [PostgreSQL](https://www.postgresql.org/) with [pgvector](https://github.com/pgvector/pgvector)
+- **Embeddings**: [Hugging Face Inference API](https://huggingface.co/docs/api-inference/index)
+- **Task Queue**: [Arq](https://github.com/samuelcolvin/arq) + [Redis](https://redis.io/)
+- **ORM**: [SQLAlchemy 2.0](https://www.sqlalchemy.org/)
+
+---
+
+## ⚙️ Installation & Setup
+
+### 1. Prerequisites
+- Python 3.12+
+- PostgreSQL (with pgvector extension)
+- Redis
+
+### 2. Clone and Install
+```bash
+git clone https://github.com/your-username/ai-chat-backend.git
+cd ai-chat-backend
+pip install uv
+uv sync
+```
+
+### 3. Environment Configuration
+Create a `.env` file in the root directory:
 ```env
-DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/dbname
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db
 GROQ_API_KEY=your_groq_key
+HUGGINGFACE_TOKEN=your_hf_token
+HF_API_URL=https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction
 REDIS_URL=redis://localhost:6379
 SECRET_KEY=your_jwt_secret
-HUGGINGFACE_TOKEN=optional_token
+ALGORITHM=HS256
 FRONTEND_URL=http://localhost:5173
 ```
 
-### **Running the Application**
-1. **Backend Server**:
-   ```bash
-   uv run uvicorn app.main:app --reload
-   ```
-2. **Background Worker**:
-   ```bash
-   uv run arq app.worker.WorkerSettings
-   ```
-3. **Frontend**:
-   ```bash
-   npm run dev
-   ```
+---
+
+## 🛫 Deployment (Render)
+
+1. **Build Command**: `pip install uv && uv sync`
+2. **Start Command (API)**: `uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+3. **Start Command (Worker)**: `uv run arq app.worker.WorkerSettings`
 
 ---
 
-## 3. Architecture Details
-
-### **RAG Pipeline**
-1. **Upload**: User sends a PDF/TXT to `/files/upload`.
-2. **Queue**: The file is sent to an Arq task.
-3. **Index**: The worker extracts text, chunks it recursively, generates 384-dimension embeddings, and stores them in the `document_chunks` table.
-4. **Retrieve**: When chatting, the system performs a hybrid search to find the most relevant context and injects it into the AI's prompt.
-
-### **Database Schema**
-- `users`: Auth, Plan (Free/Pro/Premium).
-- `chats`: Conversation metadata.
-- `messages`: Chat history.
-- `files`: Uploaded document metadata.
-- `document_chunks`: Chunks of text with their corresponding vector embeddings.
-
----
-
-## 4. Maintenance
-- **Migrations**: Use `alembic upgrade head` to apply schema changes.
-- **Cleanup**: Unused debugging scripts and old Clerk-related logic have been removed for a clean, production-ready codebase.
+## 📄 License
+This project is licensed under the MIT License.
