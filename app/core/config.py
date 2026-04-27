@@ -8,12 +8,13 @@ class Settings(BaseSettings):
     # Groq AI
     GROQ_API_KEY: str
     HUGGINGFACE_TOKEN: str = ""
+    HF_API_URL: str
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
 
     # JWT Authentication
-    SECRET_KEY: str = "kl11k3349uri0krplm3o4i4urf3i4u54jmrrjf3o4inrf"
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 

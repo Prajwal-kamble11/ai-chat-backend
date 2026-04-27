@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.135.3",
     "fastapi-limiter==0.1.6",
     "groq>=1.1.2",
+    "httpx>=0.28.1",
     "langchain-text-splitters>=1.1.2",
     "passlib[bcrypt]>=1.7.4",
     "pgvector>=0.4.2",
@@ -24,9 +25,7 @@ dependencies = [
     "python-multipart>=0.0.26",
     "razorpay>=2.0.1",
     "redis>=7.4.0",
-    "sentence-transformers>=5.4.1",
     "sqlalchemy>=2.0.49",
-    "torch>=2.11.0",
     "uvicorn>=0.44.0",
 ]
 
