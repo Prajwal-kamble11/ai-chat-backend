@@ -5,7 +5,7 @@ import json
 
 from app.core.config import settings
 from app.db import SessionLocal
-from app.models import Chat, File, DocumentChunk
+from app.models import Chat, DocumentChunk
 from app.services.chat_service import summarize_messages
 from app.services.file_service import extract_text_from_pdf, extract_text_from_txt, chunk_text
 from app.services.vector_service import get_batch_embeddings

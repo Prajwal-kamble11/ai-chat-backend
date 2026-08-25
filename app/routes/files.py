@@ -4,7 +4,7 @@ from sqlalchemy import select
 from typing import List
 
 from app.db import get_db
-from app.models import File, User
+from app.models import File
 from app.schemas import FileResponse
 from app.core.deps import get_current_user
 from app.core.redis import ArqManager

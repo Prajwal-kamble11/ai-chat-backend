@@ -1,4 +1,3 @@
-import hashlib
 from fastapi import HTTPException
 from sqlalchemy import select
 from groq import AsyncGroq
@@ -6,7 +5,6 @@ from groq import AsyncGroq
 from app.core.config import settings
 from app.models import Chat, Message, User
 from app.schemas import ChatRequest, ChatResponse
-from app.core.redis import redis_client, ArqManager
 from app.services.quota_service import check_and_increment_quota
 from app.services.rag_service import search_relevant_context
 

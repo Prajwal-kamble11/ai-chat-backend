@@ -1,7 +1,6 @@
-from sqlalchemy import text, select
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.vector_service import get_embeddings
-from app.models import DocumentChunk
 
 async def search_relevant_context(query: str, user_id: str, db: AsyncSession, limit: int = 5) -> str:
     """
